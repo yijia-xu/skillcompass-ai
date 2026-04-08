@@ -1,0 +1,32 @@
+{
+  "target_role": "data_engineer",
+  "resume_text": "See examples/sample_resume.txt",
+  "parsed_resume_skills": [
+    "python",
+    "sql",
+    "postgresql",
+    "docker",
+    "github actions"
+  ],
+  "query_embedding": [],
+  "matched_postings": [],
+  "top_skill_gaps": [
+    {
+      "skill": "airflow",
+      "market_frequency": 12,
+      "gap_score": 60.0,
+      "reason": "Missing in resume and appears in 12/20 recent postings."
+    }
+  ],
+  "learning_plan": [
+    {
+      "phase": "Foundation",
+      "objective": "Build data pipeline fundamentals for production workflows.",
+      "tasks": [
+        "Learn Airflow DAG basics",
+        "Practice data quality checks"
+      ],
+      "deliverable": "Weekly ETL practice repo with tests."
+    }
+  ]
+}

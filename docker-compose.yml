@@ -1,0 +1,12 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: gapsolver-postgres
+    environment:
+      POSTGRES_USER: gapsolver
+      POSTGRES_PASSWORD: gapsolver
+      POSTGRES_DB: gapsolver
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres-data:/var/lib/postgresql/data

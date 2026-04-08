@@ -1,0 +1,31 @@
+[project]
+name = "gapsolver-ai"
+version = "0.1.0"
+description = "Job-oriented skill gap analyzer with LangGraph and pgvector"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "langgraph>=0.2.35",
+  "langchain-openai>=0.2.0",
+  "psycopg[binary]>=3.2.0",
+  "pgvector>=0.3.3",
+  "pydantic>=2.8.2",
+  "python-dotenv>=1.0.1",
+  "pypdf>=4.3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.2",
+  "ruff>=0.6.3",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
