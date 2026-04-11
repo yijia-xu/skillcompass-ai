@@ -2,7 +2,8 @@ import json
 import uuid
 from pathlib import Path
 
-from langchain_openai import AzureOpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
+from pgvector.psycopg import register_vector
 
 from src.config import settings
 from src.db.client import get_connection, insert_job_postings, load_schema
@@ -25,11 +26,10 @@ def main() -> None:
     schema_sql = schema_path.read_text()
     postings = json.loads(data_path.read_text())
 
-    embeddings_client = AzureOpenAIEmbeddings(
+    embeddings_client = OpenAIEmbeddings(
         api_key=settings.azure_openai_api_key,
-        azure_endpoint=settings.azure_openai_endpoint,
-        api_version=settings.azure_openai_api_version,
-        azure_deployment=settings.azure_openai_embedding_deployment,
+        base_url=settings.azure_openai_endpoint,
+        model=settings.azure_openai_embedding_deployment,
     )
 
     docs = [f"{p['title']} at {p['company']}. Skills: {p['skills_text']}" for p in postings]
@@ -53,6 +53,7 @@ def main() -> None:
     conn = get_connection(settings.database_url)
     try:
         load_schema(conn, schema_sql)
+        register_vector(conn)
         insert_job_postings(conn, rows)
     finally:
         conn.close()

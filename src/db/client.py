@@ -7,7 +7,11 @@ from pgvector.psycopg import register_vector
 
 def get_connection(database_url: str) -> psycopg.Connection:
     conn = psycopg.connect(database_url)
-    register_vector(conn)
+    try:
+        register_vector(conn)
+    except psycopg.ProgrammingError:
+        # First-run databases may not have CREATE EXTENSION vector yet.
+        pass
     return conn
 
 

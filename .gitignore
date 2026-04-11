@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 *.pyo
+*.egg-info/
+build/
+dist/
 
 # Virtual environments
 .venv/
@@ -21,3 +24,6 @@ venv/
 
 # Local database volume
 docker/postgres-data/
+
+# Generated demo outputs
+examples/

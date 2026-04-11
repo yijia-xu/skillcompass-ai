@@ -1,4 +1,4 @@
-from langchain_openai import AzureOpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 
 from src.config import settings
 from src.db.client import get_connection
@@ -6,11 +6,10 @@ from src.graph.state import GraphState
 
 
 def search_node(state: GraphState) -> GraphState:
-    embedder = AzureOpenAIEmbeddings(
+    embedder = OpenAIEmbeddings(
         api_key=settings.azure_openai_api_key,
-        azure_endpoint=settings.azure_openai_endpoint,
-        api_version=settings.azure_openai_api_version,
-        azure_deployment=settings.azure_openai_embedding_deployment,
+        base_url=settings.azure_openai_endpoint,
+        model=settings.azure_openai_embedding_deployment,
     )
     query_text = f"{state.target_role}. Resume skills: {', '.join(state.parsed_resume_skills)}"
     query_embedding = embedder.embed_query(query_text)

@@ -44,7 +44,7 @@ def main() -> None:
     )
 
     app = build_workflow()
-    result: GraphState = app.invoke(state)
+    result = GraphState.model_validate(app.invoke(state))
 
     output_json.write_text(json.dumps(result.model_dump(), indent=2, ensure_ascii=True))
     output_md.write_text(to_markdown(result))
