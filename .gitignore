@@ -1,0 +1,23 @@
+# Python cache/artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Environment files
+.env
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local database volume
+docker/postgres-data/

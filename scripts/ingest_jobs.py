@@ -2,15 +2,21 @@ import json
 import uuid
 from pathlib import Path
 
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 
 from src.config import settings
 from src.db.client import get_connection, insert_job_postings, load_schema
 
 
 def main() -> None:
-    if not settings.database_url or not settings.openai_api_key:
-        raise ValueError("Missing DATABASE_URL or OPENAI_API_KEY in environment.")
+    if (
+        not settings.database_url
+        or not settings.azure_openai_api_key
+        or not settings.azure_openai_endpoint
+    ):
+        raise ValueError(
+            "Missing DATABASE_URL, AZURE_OPENAI_API_KEY, or AZURE_OPENAI_ENDPOINT in environment."
+        )
 
     root = Path(__file__).resolve().parents[1]
     schema_path = root / "src" / "db" / "schema.sql"
@@ -19,9 +25,11 @@ def main() -> None:
     schema_sql = schema_path.read_text()
     postings = json.loads(data_path.read_text())
 
-    embeddings_client = OpenAIEmbeddings(
-        api_key=settings.openai_api_key,
-        model=settings.embedding_model,
+    embeddings_client = AzureOpenAIEmbeddings(
+        api_key=settings.azure_openai_api_key,
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_version=settings.azure_openai_api_version,
+        azure_deployment=settings.azure_openai_embedding_deployment,
     )
 
     docs = [f"{p['title']} at {p['company']}. Skills: {p['skills_text']}" for p in postings]
