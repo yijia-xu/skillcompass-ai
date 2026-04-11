@@ -44,6 +44,9 @@ def _normalize_tasks(tasks: list) -> list[str]:
 
 
 def planner_node(state: GraphState) -> GraphState:
+    if not state.top_skill_gaps:
+        raise ValueError("PlannerNode requires non-empty top_skill_gaps.")
+
     llm = ChatOpenAI(
         api_key=settings.azure_openai_api_key,
         base_url=settings.azure_openai_endpoint,
@@ -72,4 +75,6 @@ def planner_node(state: GraphState) -> GraphState:
         step["tasks"] = _normalize_tasks(step.get("tasks", []))
         normalized_steps.append(LearningStep(**step))
     steps = normalized_steps
+    if len(steps) < 3:
+        raise ValueError("PlannerNode expected at least 3 learning phases.")
     return state.model_copy(update={"learning_plan": steps})

@@ -37,4 +37,16 @@ def parser_node(state: GraphState) -> GraphState:
     )
 
     parsed = _extract_json_object(response.content)
-    return state.model_copy(update={"parsed_resume_skills": parsed.get("skills", [])})
+    raw_skills = parsed.get("skills", [])
+    if not isinstance(raw_skills, list):
+        raise ValueError("ParserNode expected 'skills' to be a list.")
+    normalized_skills = sorted(
+        {
+            str(skill).strip().lower()
+            for skill in raw_skills
+            if isinstance(skill, str) and str(skill).strip()
+        }
+    )
+    if not normalized_skills:
+        raise ValueError("ParserNode produced no valid skills from resume_text.")
+    return state.model_copy(update={"parsed_resume_skills": normalized_skills})
