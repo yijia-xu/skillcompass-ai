@@ -44,3 +44,23 @@ def insert_job_postings(conn: psycopg.Connection, rows: Sequence[dict]) -> None:
                 },
             )
     conn.commit()
+
+
+def prune_old_job_postings(conn: psycopg.Connection, retention_days: int = 30) -> int:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM job_postings
+            WHERE posted_at < CURRENT_DATE - (%s::text || ' days')::interval
+            """,
+            (retention_days,),
+        )
+        deleted = cur.rowcount
+    conn.commit()
+    return deleted
+
+
+def truncate_job_postings(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute("TRUNCATE TABLE job_postings")
+    conn.commit()

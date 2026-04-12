@@ -16,6 +16,8 @@ class Settings:
         "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
     )
     azure_openai_chat_deployment: str = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-4o-mini")
+    adzuna_app_id: str = os.getenv("ADZUNA_APP_ID", "")
+    adzuna_app_key: str = os.getenv("ADZUNA_APP_KEY", "")
 
 
 settings = Settings()

@@ -21,7 +21,7 @@ def search_node(state: GraphState) -> GraphState:
                 """
                 SELECT id, title, company, posted_at, role_family, skills_text, raw_json
                 FROM job_postings
-                WHERE posted_at >= NOW() - INTERVAL '90 days'
+                WHERE posted_at >= NOW() - INTERVAL '30 days'
                   AND role_family = %s
                 ORDER BY embedding <=> %s::vector
                 LIMIT 20
