@@ -16,6 +16,10 @@ def load_resume_text(path: Path) -> str:
 
 def to_markdown(result: GraphState) -> str:
     lines = [f"# GapSolver AI Report ({result.target_role})", ""]
+    lines.append("## Agent Trace")
+    for event in result.agent_trace:
+        lines.append(f"- {event}")
+    lines.append("")
     lines.append("## Top Skill Gaps")
     for g in result.top_skill_gaps:
         lines.append(f"- **{g.skill}** (score: {g.gap_score}) - {g.reason}")
