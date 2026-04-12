@@ -204,7 +204,6 @@ def main() -> None:
     parser.add_argument("--max-pages", type=int, default=3)
     parser.add_argument("--results-per-page", type=int, default=50)
     parser.add_argument("--retention-days", type=int, default=30)
-    parser.add_argument("--keep-old", action="store_true", help="Skip pruning old postings")
     args = parser.parse_args()
 
     if (
