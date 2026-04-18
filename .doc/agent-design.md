@@ -12,20 +12,20 @@ GapSolver AI is a market-aware career copilot that:
 4. Generates phased, dependency-aware learning and project plans.
 5. Re-plans over time based on user progress and market drift.
 
-## 2) High-Level Architecture (Multi-Agent)
+## 2) High-Level Architecture (Current 4-Agent Runtime)
 
 ```mermaid
 flowchart TD
     userClient[UserClientWebOrAPI] --> apiGateway[APIGateway]
     apiGateway --> orchestratorAgent[OrchestratorAgent]
 
-    orchestratorAgent --> profilingAgent[ProfileAgent]
+    orchestratorAgent --> profileAgent[ProfileAgent]
     orchestratorAgent --> marketAgent[MarketIntelAgent]
     orchestratorAgent --> planningAgent[PlanningAgent]
 
     marketAgent --> ingestionPipeline[IngestionPipeline]
     ingestionPipeline --> pg[(PostgreSQLPlusPgvector)]
-    profilingAgent --> pg
+    profileAgent --> pg
     planningAgent --> pg
 
     orchestratorAgent --> reportService[ReportRenderer]
@@ -74,13 +74,10 @@ flowchart TD
 
 Primary execution model:
 
-- **Planner-Orchestrator + Specialist Agents**
-- Orchestrator calls specialist agents in DAG steps.
-- Parallelizable steps:
-  - Profile extraction and market retrieval can run concurrently after input validation.
-- Synchronization steps:
-  - Planning waits for profile + market outputs.
-  - Planning internally executes `gap -> plan -> review` before final output.
+- LangGraph composes four agent nodes in sequence.
+- Runtime chain:
+  - `OrchestratorAgent -> ProfileAgent -> MarketIntelAgent -> PlanningAgent`
+- `PlanningAgent` internally executes `gap -> plan -> review`.
 
 Fallback behavior:
 
@@ -115,13 +112,11 @@ Indexes:
 
 ```mermaid
 flowchart TD
-    inputNode[InputResumeTargetRole] --> validateNode[InputValidation]
-    validateNode --> parallelNode[ParallelBranch]
-    parallelNode --> profileNode[ProfileAgentRun]
-    parallelNode --> marketNode[MarketIntelRetrieval]
-    profileNode --> planNode[PlanningAgentRun]
-    marketNode --> planNode
-    planNode --> outputNode[StructuredPlanAndNarrative]
+    inputNode[InputResumeTargetRole] --> orchestratorNode[OrchestratorAgent]
+    orchestratorNode --> profileNode[ProfileAgent]
+    profileNode --> marketNode[MarketIntelAgent]
+    marketNode --> planningNode[PlanningAgent]
+    planningNode --> outputNode[StructuredPlanAndNarrative]
     outputNode --> storeNode[PersistRunArtifacts]
 ```
 
@@ -205,20 +200,19 @@ Core runtime:
 
 ## 12) Current Code Mapping
 
-Current repository implements a single-agent linear subset equivalent to:
-
-- Orchestrator + Parser + Search + Rank + Planner in one LangGraph flow.
+Current repository now runs the 4-agent graph directly.
 
 Mapped files:
 
 - `src/graph/workflow.py`
-- `src/nodes/parser_node.py`
-- `src/nodes/search_node.py`
-- `src/nodes/rank_node.py`
-- `src/nodes/planner_node.py`
-- `scripts/ingest_jobs.py`
+- `src/agents/orchestrator_agent.py`
+- `src/agents/profile_agent.py`
+- `src/agents/market_agent.py`
+- `src/agents/planning_agent.py`
+- `scripts/ingest_jobs_api.py`
+- `scripts/eval_harness.py`
 
-This is the initial execution slice of the 4-agent architecture above.
+This is the baseline production-shaped architecture for the current project stage.
 
 ## 13) Suggested Roadmap to Full System
 
