@@ -50,6 +50,7 @@ class GraphState(BaseModel):
     matched_postings: list[dict[str, Any]] = Field(default_factory=list)
     top_skill_gaps: list[SkillGap] = Field(default_factory=list)
     learning_plan: list[LearningStep] = Field(default_factory=list)
+    recommended_resources: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
 
     @field_validator("target_role")
     @classmethod
