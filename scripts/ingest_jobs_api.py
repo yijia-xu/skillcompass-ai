@@ -23,37 +23,32 @@ from src.db.client import (
 )
 
 ADZUNA_BASE = "https://api.adzuna.com/v1/api/jobs/ca/search"
-DATA_ENGINEERING_KEYWORDS = [
-    "python",
-    "sql",
-    "airflow",
-    "dbt",
-    "spark",
-    "kafka",
-    "snowflake",
-    "bigquery",
-    "redshift",
-    "databricks",
-    "etl",
-    "elt",
-    "data modeling",
-    "data warehouse",
-    "postgresql",
-    "aws",
-    "azure",
-    "gcp",
-]
-
-ROLE_KEYWORDS = {
-    "data_engineer": [
-        "data engineer",
-        "analytics engineer",
-        "data platform",
-        "etl engineer",
-        "big data",
-    ],
-    "ml_engineer": ["machine learning engineer", "ml engineer", "mlops"],
-    "backend_engineer": ["backend engineer", "software engineer backend"],
+STOPWORDS = {
+    "and",
+    "the",
+    "for",
+    "with",
+    "your",
+    "you",
+    "are",
+    "our",
+    "from",
+    "this",
+    "that",
+    "will",
+    "into",
+    "using",
+    "experience",
+    "years",
+    "year",
+    "role",
+    "team",
+    "work",
+    "about",
+    "have",
+    "has",
+    "job",
+    "join",
 }
 
 
@@ -98,19 +93,26 @@ def html_to_text(html: str) -> str:
     squashed = re.sub(r"\s+", " ", no_tags).strip()
     return squashed
 
-
-def infer_role_family(title: str, description: str) -> str | None:
-    haystack = f"{title} {description}".lower()
-    for role_family, patterns in ROLE_KEYWORDS.items():
-        if any(pattern in haystack for pattern in patterns):
-            return role_family
-    return None
+def normalize_role_family(query: str) -> str:
+    return re.sub(r"\s+", "_", query.strip().lower())
 
 
-def extract_skills(title: str, description: str, tags: list[str]) -> list[str]:
-    haystack = f"{title} {description} {' '.join(tags)}".lower()
-    found = [keyword for keyword in DATA_ENGINEERING_KEYWORDS if keyword in haystack]
-    return sorted(set(found))
+def extract_skills(title: str, description: str, tags: list[str], query: str) -> list[str]:
+    text = f"{title} {description} {' '.join(tags)}".lower()
+    tokens = re.findall(r"[a-z][a-z0-9\+\#\.\-]{1,}", text)
+    query_terms = [term for term in re.split(r"\s+", query.lower().strip()) if len(term) > 2]
+
+    extracted = set()
+    for token in tokens:
+        if len(token) < 2:
+            continue
+        if token in STOPWORDS:
+            continue
+        extracted.add(token)
+
+    extracted.update(term for term in query_terms if term not in STOPWORDS)
+    extracted.update(tag.strip().lower() for tag in tags if tag.strip())
+    return sorted(extracted)[:30]
 
 
 def parse_posted_at(raw_job: dict) -> datetime | None:
@@ -165,9 +167,9 @@ def normalize_jobs(
         if query.lower() not in haystack:
             stats["non_matching_query"] += 1
             continue
-        role_family = infer_role_family(title, description) or "other"
+        role_family = normalize_role_family(query)
 
-        skills = extract_skills(title, description, tags)
+        skills = extract_skills(title, description, tags, query=query)
         # Keep quality guardrails, but avoid over-filtering early-stage ingestion.
         if len(description) < 80 or len(skills) < 1:
             stats["low_quality_content"] += 1
@@ -274,9 +276,8 @@ def main() -> None:
         register_vector(conn)
         truncate_job_postings(conn)
         print("Reset job_postings table before ingestion.")
-        if not args.keep_old:
-            deleted = prune_old_job_postings(conn, retention_days=args.retention_days)
-            print(f"Pruned {deleted} postings older than {args.retention_days} days.")
+        deleted = prune_old_job_postings(conn, retention_days=args.retention_days)
+        print(f"Pruned {deleted} postings older than {args.retention_days} days.")
         insert_job_postings(conn, rows)
     finally:
         conn.close()
