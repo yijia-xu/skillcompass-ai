@@ -23,6 +23,7 @@ def main() -> None:
     result = run_analysis(
         target_role="data_engineer",
         resume_text=load_resume_text(resume_path),
+        resume_file_path=str(resume_path),
     )
 
     output_json.write_text(json.dumps(result.model_dump(), indent=2, ensure_ascii=True))

@@ -16,6 +16,7 @@ dependencies = [
   "fastapi>=0.115.0",
   "uvicorn>=0.30.6",
   "gradio>=5.0.0",
+  "requests>=2.32.0",
 ]
 
 [project.optional-dependencies]

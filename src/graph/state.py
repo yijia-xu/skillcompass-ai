@@ -44,6 +44,7 @@ class LearningStep(BaseModel):
 class GraphState(BaseModel):
     target_role: str
     resume_text: str
+    resume_file_path: str = ""
     agent_trace: list[str] = Field(default_factory=list)
     parsed_resume_skills: list[str] = Field(default_factory=list)
     query_embedding: list[float] = Field(default_factory=list)

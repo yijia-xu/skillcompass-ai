@@ -5,6 +5,16 @@ from src.services.analyze import run_analysis
 from src.services.formatters import result_to_markdown
 
 
+def _resolve_file_path(resume_file) -> str:
+    if isinstance(resume_file, str):
+        return resume_file
+    if isinstance(resume_file, dict):
+        path = resume_file.get("path") or resume_file.get("name")
+        return path if isinstance(path, str) else ""
+    path = getattr(resume_file, "name", "")
+    return path if isinstance(path, str) else ""
+
+
 def _extract_resume_text(file_path: str) -> str:
     if not file_path:
         raise ValueError("Please upload a PDF resume.")
@@ -16,13 +26,21 @@ def _extract_resume_text(file_path: str) -> str:
 
 
 def analyze_resume(target_role: str, resume_file):
-    resume_text = _extract_resume_text(resume_file)
-    result = run_analysis(target_role=target_role, resume_text=resume_text)
-    return result_to_markdown(result)
+    try:
+        file_path = _resolve_file_path(resume_file)
+        resume_text = _extract_resume_text(file_path)
+        result = run_analysis(
+            target_role=target_role,
+            resume_text=resume_text,
+            resume_file_path=file_path,
+        )
+        return result_to_markdown(result)
+    except Exception as exc:
+        return f"❌ Analyze failed: {exc}"
 
 
 def build_ui() -> gr.Blocks:
-    with gr.Blocks(title="GapSolver AI", theme=gr.themes.Soft()) as demo:
+    with gr.Blocks(title="GapSolver AI") as demo:
         gr.Markdown("# GapSolver AI\nUpload a PDF resume to analyze skill gaps against recent market demand.")
         with gr.Row():
             target_role = gr.Textbox(
