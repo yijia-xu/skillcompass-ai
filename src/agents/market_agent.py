@@ -26,17 +26,29 @@ MINIMAL_NOISE_WORDS = {
     "engineer", "engineering", "developer", "development", "software", "data", "role",
     "position", "company", "required", "preferred", "experience", "years", "it",
 }
+GENERIC_NON_SKILL_TERMS = {
+    "description", "expertise", "jobs", "looking", "application", "chance", "client",
+    "clients", "business", "opportunity", "environment", "candidate", "responsibilities",
+}
 JD_SKILL_EXTRACTION_PROMPT = (
-    "You extract hard technical skills from job descriptions for role-gap analysis.\n"
-    "Return STRICT JSON array of strings only.\n"
-    "Include: programming languages, frameworks/libraries, cloud/data platforms, tools, protocols, methods.\n"
-    "Exclude: role titles, generic hiring words, soft skills, responsibilities, company/team words."
+    "You extract HARD TECHNICAL SKILLS from a job description for skill-gap analysis.\n"
+    "Return STRICT JSON array of lowercase strings only, no prose.\n"
+    "Keep only concrete, teachable, tool-like skills explicitly mentioned in the JD.\n"
+    "Allowed categories: programming languages, frameworks/libraries, cloud/data platforms/services, "
+    "databases, dev/data tools, infra/ops tools, protocols.\n"
+    "Reject generic nouns and hiring language.\n"
+    "Reject examples: engineer, expertise, description, jobs, looking, application, chance, client.\n"
+    "If uncertain, drop it. Prefer precision over recall."
 )
 SKILL_CANDIDATE_FILTER_PROMPT = (
     "You are validating candidate terms for a technical skill-gap matrix.\n"
-    "Keep only concrete technical skills, tools, frameworks, cloud/data platforms, protocols, or programming languages.\n"
-    "Reject generic words, hiring language, company words, and vague terms.\n"
-    "Return STRICT JSON array of the kept terms, preserving original lowercase strings only."
+    "For each term, decide if it is a concrete technical skill that can be practiced and demonstrated in a project.\n"
+    "Keep only: programming languages, frameworks/libraries, cloud services/platforms, databases, data tools, protocols, infra tools.\n"
+    "Reject: generic nouns (e.g. integration, analytics), company/vendor names (e.g. microsoft), "
+    "job-market wording, role words, and business nouns (e.g. client, application, opportunity).\n"
+    "Return STRICT JSON array of objects with keys: term, keep, canonical_skill.\n"
+    "If keep=false, canonical_skill must be empty string.\n"
+    "If keep=true, canonical_skill must be a normalized concrete skill term in lowercase."
 )
 
 
@@ -123,12 +135,14 @@ def _normalize_extracted_skills(raw_items: list) -> list[str]:
     for item in raw_items:
         if not isinstance(item, str):
             continue
-        skill = item.strip().lower()
+        skill = re.sub(r"^[^a-z0-9+#.]+|[^a-z0-9+#.]+$", "", item.strip().lower())
         if not skill:
             continue
         if len(skill) < 2 or len(skill) > 64:
             continue
         if skill in FALLBACK_STOPWORDS or skill in MINIMAL_NOISE_WORDS:
+            continue
+        if skill in GENERIC_NON_SKILL_TERMS:
             continue
         if skill in seen:
             continue
@@ -153,8 +167,22 @@ def _filter_skill_candidates_with_llm(candidates: list[str], target_role: str) -
             {"role": "user", "content": json.dumps(payload, ensure_ascii=True)},
         ]
     )
-    kept = _extract_json_array(response.content if isinstance(response.content, str) else str(response.content))
-    return {item.strip().lower() for item in kept if isinstance(item, str) and item.strip()}
+    parsed = _extract_json_array(response.content if isinstance(response.content, str) else str(response.content))
+    kept: set[str] = set()
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        keep = bool(item.get("keep"))
+        canonical = item.get("canonical_skill")
+        if not keep or not isinstance(canonical, str):
+            continue
+        value = canonical.strip().lower()
+        if not value:
+            continue
+        if value in FALLBACK_STOPWORDS or value in MINIMAL_NOISE_WORDS:
+            continue
+        kept.add(value)
+    return kept
 
 
 def _fetch_json(url: str) -> dict:
@@ -191,13 +219,24 @@ def _build_dedupe_key(url: str, title: str, company: str, posted_at: datetime, d
     return f"{normalized_url}|{title.lower()}|{company.lower()}|{posted_at.date()}|{text_hash}"
 
 
+def _build_company_role_key(title: str, company: str) -> str:
+    normalized_title = re.sub(r"\s+", " ", title.strip().lower())
+    normalized_company = re.sub(r"\s+", " ", company.strip().lower())
+    return f"{normalized_company}|{normalized_title}"
+
+
 def _refresh_market_data_for_role(target_role: str, retention_days: int = 30) -> int:
     role_query = target_role.replace("_", " ").strip()
     role_family = _normalize_role_family(target_role)
-    raw_jobs = _fetch_adzuna_jobs(role_query)
+    raw_jobs = _fetch_adzuna_jobs(
+        role_query,
+        max_pages=max(1, settings.market_max_pages),
+        results_per_page=max(10, min(settings.market_results_per_page, 50)),
+    )
     cutoff = datetime.now(tz=UTC) - timedelta(days=retention_days)
 
     dedupe = set()
+    company_role_seen = set()
     normalized = []
     for raw in raw_jobs:
         title = str(raw.get("title", "")).strip()
@@ -224,10 +263,15 @@ def _refresh_market_data_for_role(target_role: str, retention_days: int = 30) ->
         if len(description) < 80 or len(skills) < 1:
             continue
 
+        company_role_key = _build_company_role_key(title, company)
+        if company_role_key in company_role_seen:
+            continue
+
         dedupe_key = _build_dedupe_key(url, title, company, posted_at_dt, description)
         if dedupe_key in dedupe:
             continue
         dedupe.add(dedupe_key)
+        company_role_seen.add(company_role_key)
         normalized.append(
             {
                 "source": "adzuna_ca",
@@ -368,6 +412,33 @@ def market_agent(state: GraphState) -> GraphState:
                 reason=f"Missing in resume and appears in {freq}/{total_docs} recent postings.",
             )
         )
+
+    if not top_skill_gaps:
+        # Recovery path: avoid empty matrix when strict LLM filtering is too aggressive.
+        relaxed_terms = [
+            skill
+            for skill, _ in counts.most_common(20)
+            if skill not in resume_skill_set
+            and skill not in FALLBACK_STOPWORDS
+            and skill not in MINIMAL_NOISE_WORDS
+            and len(skill) >= 3
+        ]
+        for skill in relaxed_terms[:8]:
+            freq = counts.get(skill, 0)
+            if freq <= 0:
+                continue
+            if skill in GENERIC_NON_SKILL_TERMS:
+                continue
+            demand_weight = freq / total_docs
+            gap_score = round(demand_weight * 100, 2)
+            top_skill_gaps.append(
+                SkillGap(
+                    skill=skill,
+                    market_frequency=freq,
+                    gap_score=gap_score,
+                    reason=f"Missing in resume and appears in {freq}/{total_docs} recent postings.",
+                )
+            )
 
     ranked_state = state.model_copy(
         update={
