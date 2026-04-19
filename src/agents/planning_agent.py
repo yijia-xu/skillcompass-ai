@@ -59,7 +59,39 @@ def planning_agent(state: GraphState) -> GraphState:
     state = state.model_copy(update={"agent_trace": trace})
 
     if not state.top_skill_gaps:
-        raise ValueError("PlanningAgent requires non-empty top_skill_gaps.")
+        fallback_steps = [
+            LearningStep(
+                phase="Phase 1",
+                objective=f"Build core foundations for {state.target_role}.",
+                tasks=[
+                    f"Review 5 recent {state.target_role} job postings and list recurring tools/skills.",
+                    "Create a baseline study checklist for missing skills from your resume.",
+                ],
+                deliverable="A prioritized gap checklist with estimated study effort.",
+            ),
+            LearningStep(
+                phase="Phase 2",
+                objective="Implement focused practice on highest-impact missing skills.",
+                tasks=[
+                    "Complete two small exercises that target the top missing skills.",
+                    "Document decisions, trade-offs, and lessons learned for each exercise.",
+                ],
+                deliverable="Two focused practice artifacts with notes.",
+            ),
+            LearningStep(
+                phase="Phase 3",
+                objective="Package outcomes into a portfolio-ready project.",
+                tasks=[
+                    "Build one end-to-end mini project aligned with target role expectations.",
+                    "Write a concise project README highlighting role-relevant competencies.",
+                ],
+                deliverable="One portfolio project that demonstrates job-ready capability.",
+            ),
+        ]
+        fallback_state = state.model_copy(update={"learning_plan": fallback_steps})
+        trace = list(fallback_state.agent_trace)
+        trace.append("planning:fallback_plan_generated")
+        return fallback_state.model_copy(update={"agent_trace": trace})
 
     gap_skills = [gap.skill for gap in state.top_skill_gaps]
     resource_map = discover_learning_resources(gap_skills, github_token=settings.github_token)

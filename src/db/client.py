@@ -64,3 +64,11 @@ def truncate_job_postings(conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute("TRUNCATE TABLE job_postings")
     conn.commit()
+
+
+def delete_job_postings_by_role_family(conn: psycopg.Connection, role_family: str) -> int:
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM job_postings WHERE role_family = %s", (role_family,))
+        deleted = cur.rowcount
+    conn.commit()
+    return deleted
