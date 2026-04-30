@@ -1,10 +1,352 @@
-from fastapi import FastAPI
+from io import BytesIO
+import os
+from pathlib import Path
+import tempfile
+
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.responses import HTMLResponse
+from pypdf import PdfReader
 from pydantic import BaseModel
 
 from src.services.analyze import run_analysis
 from src.services.formatters import result_to_markdown
 
 app = FastAPI(title="GapSolver AI API", version="0.1.0")
+
+INDEX_HTML = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillCompass AI</title>
+  <style>
+    :root {
+      --bg: #0b1016;
+      --bg-2: #0f1722;
+      --panel: rgba(17, 26, 36, 0.88);
+      --text: #e6eef7;
+      --muted: #9fb0c3;
+      --accent: #2dce8f;
+      --accent-2: #53ddb3;
+      --border: rgba(45, 206, 143, 0.24);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      background:
+        radial-gradient(70% 55% at 50% -10%, rgba(45, 206, 143, 0.18), transparent 65%),
+        linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 100%);
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(45, 206, 143, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(45, 206, 143, 0.05) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(circle at center, black 22%, transparent 78%);
+      animation: drift 14s linear infinite;
+    }
+    .wrap { max-width: 1020px; margin: 0 auto; padding: 72px 24px 88px; position: relative; z-index: 1; }
+    .top-nav {
+      position: fixed;
+      top: 16px;
+      right: 18px;
+      z-index: 2;
+      display: flex;
+      gap: 10px;
+    }
+    .top-nav a {
+      color: #c9d7e6;
+      text-decoration: none;
+      border: 1px solid rgba(45, 206, 143, 0.3);
+      background: rgba(17, 26, 36, 0.82);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      transition: .16s ease;
+    }
+    .top-nav a:hover {
+      color: #eaf4ff;
+      border-color: rgba(83, 221, 179, 0.6);
+      box-shadow: 0 0 14px rgba(45, 206, 143, 0.2);
+      transform: translateY(-1px);
+    }
+    .hero { text-align: center; margin-bottom: 38px; }
+    .title {
+      margin: 0;
+      font-size: clamp(42px, 7vw, 68px);
+      letter-spacing: -0.03em;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+    .title span {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+      animation: title-in .9s cubic-bezier(.2,.8,.2,1) forwards;
+      text-shadow: 0 0 20px rgba(45, 206, 143, 0.26);
+    }
+    .title .word1 { color: var(--text); animation-delay: .08s; }
+    .title .word2 { color: var(--accent); animation-delay: .24s; margin-left: 8px; }
+    .sub-primary {
+      color: var(--muted);
+      margin: 16px 0 0;
+      font-size: 20px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fade-up .8s ease .4s forwards;
+    }
+    .sub-secondary {
+      color: #93a8bd;
+      margin: 10px 0 0;
+      font-size: 15px;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fade-up .8s ease .52s forwards;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 0 32px rgba(45, 206, 143, 0.11);
+      padding: 22px;
+      margin-bottom: 16px;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fade-up .65s ease forwards;
+    }
+    .panel.p1 { animation-delay: .55s; }
+    .panel.p2 { animation-delay: .68s; }
+    .panel.result { animation-delay: .84s; }
+    label { display: block; color: var(--muted); margin-bottom: 10px; font-size: 14px; }
+    input[type="text"] {
+      width: 100%;
+      background: #0f1721;
+      color: var(--text);
+      border: 1px solid #224154;
+      border-radius: 12px;
+      padding: 14px 15px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color .18s ease, box-shadow .18s ease;
+    }
+    input:focus { border-color: rgba(83,221,179,.8); box-shadow: 0 0 0 4px rgba(45,206,143,.16); }
+    .file-input-native {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 1px;
+      height: 1px;
+    }
+    .file-input-shell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      background: #0f1721;
+      border: 1px solid #224154;
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color .18s ease, box-shadow .18s ease;
+      min-height: 52px;
+    }
+    .file-input-shell:hover {
+      border-color: rgba(83,221,179,.55);
+    }
+    .file-input-shell:focus-within {
+      border-color: rgba(83,221,179,.8);
+      box-shadow: 0 0 0 4px rgba(45,206,143,.16);
+    }
+    .file-cta {
+      border: 1px solid rgba(83,221,179,.45);
+      color: #c8f5e2;
+      background: rgba(45,206,143,.12);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .file-name {
+      color: var(--muted);
+      font-size: 15px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 15px 18px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #082018;
+      font-weight: 700;
+      font-size: 17px;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fade-up .65s ease .77s forwards;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(45,206,143,.33); filter: saturate(1.06); }
+    button:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; transform: none; }
+    .result pre {
+      white-space: pre-wrap;
+      margin: 0;
+      background: #0f1721;
+      border: 1px solid #213647;
+      border-radius: 14px;
+      padding: 16px;
+      color: #d4dfec;
+      line-height: 1.5;
+      min-height: 140px;
+    }
+    .status { color: var(--muted); font-size: 14px; min-height: 22px; margin-top: 8px; }
+    .loader {
+      display: none;
+      margin-top: 10px;
+      align-items: center;
+      gap: 10px;
+      color: #b9c8d9;
+      font-size: 14px;
+    }
+    .loader.active { display: flex; }
+    .loader-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(45,206,143,.55);
+      animation: pulse-dot 1.1s ease-in-out infinite;
+    }
+    .loader-bar {
+      position: relative;
+      width: 160px;
+      height: 6px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(45,206,143,.18);
+    }
+    .loader-bar::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(83,221,179,.95) 45%, transparent 100%);
+      transform: translateX(-100%);
+      animation: scan 1.2s linear infinite;
+    }
+    @keyframes title-in {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes fade-up {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes drift {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(.9); opacity: .72; }
+      50% { transform: scale(1.18); opacity: 1; }
+    }
+    @keyframes scan {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(100%); }
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <a href="https://github.com/yijia-xu/gapsolver-ai" target="_blank" rel="noreferrer">GitHub</a>
+    <a href="/docs" target="_blank" rel="noreferrer">API Docs</a>
+  </nav>
+  <div class="wrap">
+    <div class="hero">
+      <h1 class="title"><span class="word1">SkillCompass</span><span class="word2">AI</span></h1>
+      <p class="sub-primary">Navigate your role skill gaps with live market signals.</p>
+      <p class="sub-secondary">Upload resume · Analyze market gaps · Build your learning roadmap</p>
+    </div>
+    <form id="analyze-form">
+      <div class="panel p1">
+        <label for="target_role">Target Role</label>
+        <input id="target_role" name="target_role" type="text" value="data engineer" />
+      </div>
+      <div class="panel p2">
+        <label for="resume_file">Resume PDF</label>
+        <label class="file-input-shell" for="resume_file">
+          <span class="file-cta">Choose PDF</span>
+          <span class="file-name" id="file-name">No file selected</span>
+        </label>
+        <input class="file-input-native" id="resume_file" name="resume_file" type="file" accept=".pdf" required />
+      </div>
+      <button id="submit-btn" type="submit">Analyze Skill Gaps</button>
+      <div class="status" id="status"></div>
+      <div class="loader" id="loader">
+        <span class="loader-dot"></span>
+        <span class="loader-bar"></span>
+        <span id="loader-text">Scanning resume and market data...</span>
+      </div>
+    </form>
+    <div class="result panel">
+      <pre id="report">Run analysis to see report...</pre>
+    </div>
+  </div>
+  <script>
+    const form = document.getElementById("analyze-form");
+    const report = document.getElementById("report");
+    const statusEl = document.getElementById("status");
+    const submitBtn = document.getElementById("submit-btn");
+    const fileNameEl = document.getElementById("file-name");
+    const resumeFileInput = document.getElementById("resume_file");
+    const loader = document.getElementById("loader");
+    const loaderText = document.getElementById("loader-text");
+    const defaultBtnLabel = submitBtn.textContent;
+    resumeFileInput.addEventListener("change", () => {
+      const file = resumeFileInput.files && resumeFileInput.files[0];
+      fileNameEl.textContent = file ? file.name : "No file selected";
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!resumeFileInput.files.length) return;
+      const fd = new FormData(form);
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Analyzing...";
+      statusEl.textContent = "Analyzing...";
+      loader.classList.add("active");
+      loaderText.textContent = "Scanning resume and market data...";
+      report.textContent = "";
+      try {
+        const res = await fetch("/analyze-ui", { method: "POST", body: fd });
+        loaderText.textContent = "Compiling your personalized report...";
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Analysis failed");
+        report.textContent = data.markdown_report;
+        statusEl.textContent = "Done.";
+      } catch (err) {
+        report.textContent = "Analyze failed: " + err.message;
+        statusEl.textContent = "Failed.";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = defaultBtnLabel;
+        loader.classList.remove("active");
+      }
+    });
+  </script>
+</body>
+</html>
+"""
 
 
 class AnalyzeRequest(BaseModel):
@@ -21,6 +363,31 @@ class AnalyzeResponse(BaseModel):
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/", response_class=HTMLResponse)
+def index() -> str:
+    return INDEX_HTML
+
+
+@app.post("/analyze-ui")
+def analyze_ui(target_role: str = Form(...), resume_file: UploadFile = File(...)) -> AnalyzeResponse:
+    content = resume_file.file.read()
+    text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(content)).pages).strip()
+    if not text:
+        raise ValueError("Uploaded PDF has no extractable text.")
+    suffix = Path(resume_file.filename or "resume.pdf").suffix or ".pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    try:
+        result = run_analysis(target_role=target_role, resume_text=text, resume_file_path=tmp_path)
+        return AnalyzeResponse(result=result.model_dump(), markdown_report=result_to_markdown(result))
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)

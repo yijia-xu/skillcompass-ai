@@ -1,8 +1,8 @@
-from src.frontend.app import build_ui
+import uvicorn
 
 
 def main() -> None:
-    build_ui().launch(server_name="0.0.0.0", server_port=7860)
+    uvicorn.run("src.api.app:app", host="0.0.0.0", port=7860, reload=False)
 
 
 if __name__ == "__main__":
