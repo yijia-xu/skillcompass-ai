@@ -6,31 +6,18 @@ import requests
 from requests.exceptions import RequestException
 from src.config import settings
 from src.graph.state import GraphState
+from src.services.skill_normalization import normalize_skills
+from src.services.skill_normalization import split_skill_phrases
 
 
 def _fallback_extract_skills_from_text(resume_text: str) -> list[str]:
-    stopwords = {
-        "and", "the", "for", "with", "from", "that", "this", "have", "using", "used",
-        "work", "team", "years", "experience", "project", "projects", "responsible",
-    }
     tokens = re.findall(r"[A-Za-z][A-Za-z0-9+#.\-/]{1,30}", resume_text)
-    normalized: list[str] = []
+    raw_candidates: list[str] = []
     for token in tokens:
-        value = token.strip().lower()
-        if value in stopwords or value.isdigit() or len(value) < 2:
-            continue
         # Keep likely technical terms.
-        if any(ch.isdigit() for ch in value) or any(ch in value for ch in "+#./-") or len(value) >= 4:
-            normalized.append(value)
-    deduped: list[str] = []
-    seen = set()
-    for skill in normalized:
-        if skill not in seen:
-            deduped.append(skill)
-            seen.add(skill)
-        if len(deduped) >= 40:
-            break
-    return deduped
+        if any(ch.isdigit() for ch in token) or any(ch in token for ch in "+#./-") or len(token) >= 4:
+            raw_candidates.append(token)
+    return normalize_skills(raw_candidates, limit=40)
 
 
 def _collect_skill_like_values(node, out: list[str], in_skill_context: bool = False) -> None:
@@ -61,17 +48,6 @@ def _extract_string_candidates(node, out: list[str]) -> None:
     if isinstance(node, dict):
         for value in node.values():
             _extract_string_candidates(value, out)
-
-
-def _normalize_skill_candidate(value: str) -> str:
-    cleaned = re.sub(r"\s+", " ", value.strip().lower())
-    if not cleaned or len(cleaned) < 2 or len(cleaned) > 64:
-        return ""
-    if "@" in cleaned or cleaned.startswith("http://") or cleaned.startswith("https://"):
-        return ""
-    if re.fullmatch(r"[0-9\W_]+", cleaned):
-        return ""
-    return cleaned
 
 
 def _collect_from_untyped_data_fields(payload: dict, out: list[str]) -> None:
@@ -113,15 +89,12 @@ def _flatten_skills(payload: dict) -> list[str]:
                     candidates.append(value)
     _collect_skill_like_values(payload, candidates)
     _collect_from_untyped_data_fields(payload, candidates)
-    return sorted(
-        {
-            normalized
-            for value in candidates
-            if value and value.strip()
-            for normalized in [_normalize_skill_candidate(value)]
-            if normalized
-        }
-    )
+    expanded: list[str] = []
+    for value in candidates:
+        if not value or not value.strip():
+            continue
+        expanded.extend(split_skill_phrases(value))
+    return normalize_skills(expanded, limit=60)
 
 
 def _build_affinda_debug_summary(payload: dict, stage: str) -> str:

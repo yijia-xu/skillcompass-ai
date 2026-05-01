@@ -1,0 +1,11 @@
+langgraph>=0.2.35
+langchain-openai>=0.2.0
+psycopg[binary]>=3.2.0
+pgvector>=0.3.3
+pydantic>=2.8.2
+python-dotenv>=1.0.1
+pypdf>=4.3.1
+certifi>=2024.8.30
+fastapi>=0.115.0
+uvicorn>=0.30.6
+requests>=2.32.0

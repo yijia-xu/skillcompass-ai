@@ -16,20 +16,13 @@ from src.config import settings
 from src.db.client import delete_job_postings_by_role_family, get_connection, insert_job_postings
 from src.graph.state import GraphState
 from src.graph.state import SkillGap
+from src.services.skill_normalization import BASE_NOISE_TERMS
+from src.services.skill_normalization import NON_SKILL_TERMS
+from src.services.skill_normalization import normalize_skill
+from src.services.skill_normalization import normalize_skills
+from src.services.skill_normalization import split_skill_phrases
 
 ADZUNA_BASE = "https://api.adzuna.com/v1/api/jobs/ca/search"
-FALLBACK_STOPWORDS = {
-    "and", "the", "for", "with", "from", "this", "that", "will", "into", "using", "are",
-    "our", "team", "work", "about", "have", "has", "job", "join",
-}
-MINIMAL_NOISE_WORDS = {
-    "engineer", "engineering", "developer", "development", "software", "data", "role",
-    "position", "company", "required", "preferred", "experience", "years", "it",
-}
-GENERIC_NON_SKILL_TERMS = {
-    "description", "expertise", "jobs", "looking", "application", "chance", "client",
-    "clients", "business", "opportunity", "environment", "candidate", "responsibilities",
-}
 JD_SKILL_EXTRACTION_PROMPT = (
     "You extract HARD TECHNICAL SKILLS from a job description for skill-gap analysis.\n"
     "Return STRICT JSON array of lowercase strings only, no prose.\n"
@@ -53,7 +46,8 @@ SKILL_CANDIDATE_FILTER_PROMPT = (
 
 
 def _normalize_skills(skills_text: str) -> list[str]:
-    return [s.strip().lower() for s in skills_text.split(",") if s.strip()]
+    parts = [part for chunk in skills_text.split(",") for part in split_skill_phrases(chunk)]
+    return normalize_skills(parts, limit=60)
 
 
 def _normalize_role_family(target_role: str) -> str:
@@ -82,7 +76,7 @@ def _extract_market_skills(title: str, description: str, tags: list[str], query:
     role_noise = query_terms | {t.rstrip("s") for t in query_terms}
     extracted = set()
     for token in tokens:
-        if token in FALLBACK_STOPWORDS or token in MINIMAL_NOISE_WORDS:
+        if token in BASE_NOISE_TERMS or token in NON_SKILL_TERMS:
             continue
         if token in role_noise:
             continue
@@ -92,7 +86,7 @@ def _extract_market_skills(title: str, description: str, tags: list[str], query:
         if not any(ch.isdigit() for ch in token) and all(ch.isalpha() for ch in token) and len(token) < 4:
             continue
         extracted.add(token)
-    return sorted(extracted)[:30]
+    return normalize_skills(sorted(extracted), limit=30)
 
 
 def _extract_json_array(content: str) -> list:
@@ -130,25 +124,12 @@ def _extract_market_skills_with_llm(title: str, description: str, query: str) ->
 
 
 def _normalize_extracted_skills(raw_items: list) -> list[str]:
-    cleaned: list[str] = []
-    seen = set()
+    candidates: list[str] = []
     for item in raw_items:
         if not isinstance(item, str):
             continue
-        skill = re.sub(r"^[^a-z0-9+#.]+|[^a-z0-9+#.]+$", "", item.strip().lower())
-        if not skill:
-            continue
-        if len(skill) < 2 or len(skill) > 64:
-            continue
-        if skill in FALLBACK_STOPWORDS or skill in MINIMAL_NOISE_WORDS:
-            continue
-        if skill in GENERIC_NON_SKILL_TERMS:
-            continue
-        if skill in seen:
-            continue
-        seen.add(skill)
-        cleaned.append(skill)
-    return cleaned[:30]
+        candidates.extend(split_skill_phrases(item))
+    return normalize_skills(candidates, limit=30)
 
 
 def _filter_skill_candidates_with_llm(candidates: list[str], target_role: str) -> set[str]:
@@ -179,7 +160,8 @@ def _filter_skill_candidates_with_llm(candidates: list[str], target_role: str) -
         value = canonical.strip().lower()
         if not value:
             continue
-        if value in FALLBACK_STOPWORDS or value in MINIMAL_NOISE_WORDS:
+        value = normalize_skill(value)
+        if not value:
             continue
         kept.add(value)
     return kept
@@ -394,7 +376,11 @@ def market_agent(state: GraphState) -> GraphState:
         allowed_terms = llm_kept
     else:
         # Fallback when filtering model fails.
-        allowed_terms = {s for s in candidate_terms if s not in FALLBACK_STOPWORDS and s not in MINIMAL_NOISE_WORDS}
+        allowed_terms = {
+            s
+            for s in candidate_terms
+            if s not in BASE_NOISE_TERMS and s not in NON_SKILL_TERMS
+        }
 
     top_skill_gaps: list[SkillGap] = []
     for skill, freq in counts.most_common(12):
@@ -419,15 +405,15 @@ def market_agent(state: GraphState) -> GraphState:
             skill
             for skill, _ in counts.most_common(20)
             if skill not in resume_skill_set
-            and skill not in FALLBACK_STOPWORDS
-            and skill not in MINIMAL_NOISE_WORDS
+            and skill not in BASE_NOISE_TERMS
+            and skill not in NON_SKILL_TERMS
             and len(skill) >= 3
         ]
         for skill in relaxed_terms[:8]:
             freq = counts.get(skill, 0)
             if freq <= 0:
                 continue
-            if skill in GENERIC_NON_SKILL_TERMS:
+            if skill in NON_SKILL_TERMS:
                 continue
             demand_weight = freq / total_docs
             gap_score = round(demand_weight * 100, 2)
