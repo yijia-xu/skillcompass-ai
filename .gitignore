@@ -28,3 +28,5 @@ docker/postgres-data/
 
 # Generated demo outputs
 examples/
+.vercel
+.env*.local
