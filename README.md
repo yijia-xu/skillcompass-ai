@@ -2,12 +2,6 @@
 
 SkillCompass AI analyzes a resume against live job market postings, identifies technical skill gaps, and generates a practical learning roadmap.
 
-![1778109592777](images/README/1778109592777.png)
-
-![1778109605275](images/README/1778109605275.png)
-
-![1778109610837](images/README/1778109610837.png)
-
 ## Features
 
 - Resume skill extraction with Affinda + normalization pipeline.
@@ -84,3 +78,11 @@ vercel --prod
 ```
 
 Set the same environment variables from `.env` in Vercel Project Settings.
+
+![1778109592777](images/README/1778109592777.png)
+
+![1778109605275](images/README/1778109605275.png)
+
+![1778109610837](images/README/1778109610837.png)
+
+- Will work on improving the tech keywords extraction & Learning resources/roadmaps RAG
