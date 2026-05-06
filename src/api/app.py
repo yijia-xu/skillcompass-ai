@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse
 from pypdf import PdfReader
 from pydantic import BaseModel
 
-from src.services.analyze import run_analysis
 from src.services.formatters import result_to_markdown
 
 app = FastAPI(title="GapSolver AI API", version="0.1.0")
@@ -381,6 +380,8 @@ def analyze_ui(target_role: str = Form(...), resume_file: UploadFile = File(...)
         tmp.write(content)
         tmp_path = tmp.name
     try:
+        from src.services.analyze import run_analysis
+
         result = run_analysis(target_role=target_role, resume_text=text, resume_file_path=tmp_path)
         return AnalyzeResponse(result=result.model_dump(), markdown_report=result_to_markdown(result))
     finally:
@@ -392,6 +393,8 @@ def analyze_ui(target_role: str = Form(...), resume_file: UploadFile = File(...)
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
+    from src.services.analyze import run_analysis
+
     result = run_analysis(
         target_role=payload.target_role,
         resume_text=payload.resume_text,
