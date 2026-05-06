@@ -21,6 +21,8 @@ from src.services.skill_normalization import NON_SKILL_TERMS
 from src.services.skill_normalization import normalize_skill
 from src.services.skill_normalization import normalize_skills
 from src.services.skill_normalization import split_skill_phrases
+from src.services.tech_skill_gate import filter_technical_skills
+from src.services.tech_skill_gate import is_technical_skill
 
 ADZUNA_BASE = "https://api.adzuna.com/v1/api/jobs/ca/search"
 JD_SKILL_EXTRACTION_PROMPT = (
@@ -86,7 +88,7 @@ def _extract_market_skills(title: str, description: str, tags: list[str], query:
         if not any(ch.isdigit() for ch in token) and all(ch.isalpha() for ch in token) and len(token) < 4:
             continue
         extracted.add(token)
-    return normalize_skills(sorted(extracted), limit=30)
+    return filter_technical_skills(normalize_skills(sorted(extracted), limit=50), limit=30)
 
 
 def _extract_json_array(content: str) -> list:
@@ -129,7 +131,7 @@ def _normalize_extracted_skills(raw_items: list) -> list[str]:
         if not isinstance(item, str):
             continue
         candidates.extend(split_skill_phrases(item))
-    return normalize_skills(candidates, limit=30)
+    return filter_technical_skills(normalize_skills(candidates, limit=50), limit=30)
 
 
 def _filter_skill_candidates_with_llm(candidates: list[str], target_role: str) -> set[str]:
@@ -164,7 +166,13 @@ def _filter_skill_candidates_with_llm(candidates: list[str], target_role: str) -
         if not value:
             continue
         kept.add(value)
-    return kept
+    return {s for s in kept if is_technical_skill(s)}
+
+
+def _technical_candidate_terms(candidate_terms: list[str]) -> list[str]:
+    """Prefer tech-gated tokens so the LLM (and counters) rarely see JD fluff."""
+    gated = filter_technical_skills(candidate_terms, limit=None)
+    return gated if gated else candidate_terms
 
 
 def _fetch_json(url: str) -> dict:
@@ -362,25 +370,24 @@ def market_agent(state: GraphState) -> GraphState:
 
     market_skills = []
     for posting in matched_postings:
-        market_skills.extend(_normalize_skills(posting["skills_text"]))
+        for s in _normalize_skills(posting["skills_text"]):
+            if is_technical_skill(s):
+                market_skills.append(s)
 
     counts = Counter(market_skills)
     resume_skill_set = set(s.strip().lower() for s in state.parsed_resume_skills)
     total_docs = max(len(matched_postings), 1)
     candidate_terms = [skill for skill, _ in counts.most_common(40)]
+    gated_for_llm = _technical_candidate_terms(candidate_terms)
     try:
-        llm_kept = _filter_skill_candidates_with_llm(candidate_terms, target_role=state.target_role)
+        llm_kept = _filter_skill_candidates_with_llm(gated_for_llm, target_role=state.target_role)
     except Exception:
         llm_kept = set()
     if llm_kept:
         allowed_terms = llm_kept
     else:
-        # Fallback when filtering model fails.
-        allowed_terms = {
-            s
-            for s in candidate_terms
-            if s not in BASE_NOISE_TERMS and s not in NON_SKILL_TERMS
-        }
+        # Fallback when filtering model fails: keep deterministic tech gate only.
+        allowed_terms = set(filter_technical_skills(candidate_terms, limit=None))
 
     top_skill_gaps: list[SkillGap] = []
     for skill, freq in counts.most_common(12):
@@ -405,15 +412,12 @@ def market_agent(state: GraphState) -> GraphState:
             skill
             for skill, _ in counts.most_common(20)
             if skill not in resume_skill_set
-            and skill not in BASE_NOISE_TERMS
-            and skill not in NON_SKILL_TERMS
+            and is_technical_skill(skill)
             and len(skill) >= 3
         ]
         for skill in relaxed_terms[:8]:
             freq = counts.get(skill, 0)
             if freq <= 0:
-                continue
-            if skill in NON_SKILL_TERMS:
                 continue
             demand_weight = freq / total_docs
             gap_score = round(demand_weight * 100, 2)

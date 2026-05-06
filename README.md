@@ -2,6 +2,10 @@
 
 SkillCompass AI analyzes a resume against live job market postings, identifies technical skill gaps, and generates a practical learning roadmap.
 
+
+
+
+
 ## Features
 
 - Resume skill extraction with Affinda + normalization pipeline.
@@ -30,7 +34,7 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-2. Configure environment:
+1. Configure environment:
 
 ```bash
 cp .env.example .env
@@ -38,19 +42,19 @@ cp .env.example .env
 
 Fill in required keys in `.env`.
 
-3. Start PostgreSQL/pgvector (example):
+1. Start PostgreSQL/pgvector (example):
 
 ```bash
 docker compose up -d
 ```
 
-4. Run API server:
+1. Run API server:
 
 ```bash
 uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-5. Open:
+1. Open:
 
 - UI: `http://localhost:8000`
 - Docs: `http://localhost:8000/docs`
