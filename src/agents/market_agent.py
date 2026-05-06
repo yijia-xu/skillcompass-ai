@@ -339,7 +339,7 @@ def market_agent(state: GraphState) -> GraphState:
                 WHERE posted_at >= NOW() - INTERVAL '30 days'
                   AND role_family = %s
                 ORDER BY embedding <=> %s::vector
-                LIMIT 20
+                LIMIT 50
                 """,
                 (role_family, query_embedding),
             )
