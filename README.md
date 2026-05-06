@@ -2,9 +2,11 @@
 
 SkillCompass AI analyzes a resume against live job market postings, identifies technical skill gaps, and generates a practical learning roadmap.
 
+![1778109592777](images/README/1778109592777.png)
 
+![1778109605275](images/README/1778109605275.png)
 
-
+![1778109610837](images/README/1778109610837.png)
 
 ## Features
 
