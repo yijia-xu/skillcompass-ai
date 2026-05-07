@@ -13,12 +13,43 @@ SkillCompass AI analyzes a resume against live job market postings, identifies t
 ## Tech Stack
 
 - Python 3.10+
-- FastAPI + Uvicorn
+- FastAPI
 - LangGraph
 - Azure OpenAI (chat + embeddings)
 - PostgreSQL + pgvector
-- Affinda Resume Parser
+- Affinda Resume Parser API
 - Adzuna Jobs API
+- Docker
+- Vercel
+
+## Architecture
+
+SkillCompass AI's architecture centers around a multi-agent system powered by LangGraph and Azure OpenAI. The agents work collaboratively to analyze resumes, identify skill gaps, and generate personalized learning roadmaps.
+
+```mermaid
+graph TD
+    A[User Resume Upload] --> B[Orchestrator Agent]
+    B --> C[Profile Agent<br/>Resume Skill Extraction<br/>Normalization]
+    B --> D[Market Agent<br/>Job Market Analysis<br/>Skill Demand Ranking]
+    C --> E[Extracted Skills<br/>from Resume]
+    D --> F[Market Skill Gaps<br/>Frequency Analysis]
+    B --> G[Planning Agent<br/>Learning Plan Generation<br/>3-Phase Roadmap]
+    G --> H[Personalized Learning Plan<br/>Foundation/Core/Project Phases]
+    B --> I[Azure OpenAI<br/>LLM Processing<br/>Embeddings]
+    B --> J[LangGraph<br/>Workflow Orchestration<br/>State Management]
+    E --> G
+    F --> G
+    H --> K[Final Output<br/>JSON/Markdown]
+```
+
+### Agent Details
+
+- **Orchestrator Agent**: Coordinates the entire analysis workflow, managing data flow between agents and ensuring seamless integration.
+- **Profile Agent**: Extracts and normalizes skills from user resumes using Affinda parser and custom normalization pipelines.
+- **Market Agent**: Analyzes live job postings via Adzuna API, ranks skill gaps based on market frequency and demand.
+- **Planning Agent**: Generates structured 3-phase learning plans (Foundation, Core, Project) tailored to identified skill gaps.
+
+The agents leverage LangGraph for stateful workflow management and Azure OpenAI for intelligent text processing and embeddings, with PostgreSQL + pgvector handling vectorized data storage and retrieval.
 
 ## Quick Start
 
