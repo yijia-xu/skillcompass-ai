@@ -4,7 +4,7 @@ SkillCompass AI analyzes a resume against live job market postings, identifies t
 
 ## Features
 
-- Resume skill extraction with Affinda + normalization pipeline.
+- Resume skill extraction with Azure AI Document Intelligence (`prebuilt-layout` OCR + normalization heuristics).
 - Job description (JD) skill extraction with Azure OpenAI + fallback parser.
 - Gap ranking based on recent market frequency.
 - 3-phase learning plan generation (Foundation / Core / Project).
@@ -17,7 +17,7 @@ SkillCompass AI analyzes a resume against live job market postings, identifies t
 - LangGraph
 - Azure OpenAI (chat + embeddings)
 - PostgreSQL + pgvector
-- Affinda Resume Parser API
+- Azure AI Document Intelligence (resume parsing)
 - Adzuna Jobs API
 - Docker
 - Vercel
@@ -45,7 +45,7 @@ graph TD
 ### Agent Details
 
 - **Orchestrator Agent**: Coordinates the entire analysis workflow, managing data flow between agents and ensuring seamless integration.
-- **Profile Agent**: Extracts and normalizes skills from user resumes using Affinda parser and custom normalization pipelines.
+- **Profile Agent**: Extracts and normalizes skills from user resumes using Azure Document Intelligence (default `prebuilt-layout`) and custom normalization pipelines.
 - **Market Agent**: Analyzes live job postings via Adzuna API, ranks skill gaps based on market frequency and demand.
 - **Planning Agent**: Generates structured 3-phase learning plans (Foundation, Core, Project) tailored to identified skill gaps.
 
@@ -67,12 +67,18 @@ pip install -e .
 cp .env.example .env
 ```
 
-Fill in required keys in `.env`.
+Fill in required keys in `.env` (including `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY` for resume parsing).
 
 1. Start PostgreSQL/pgvector (example):
 
 ```bash
 docker compose up -d
+```
+
+1. Create tables (first run only, or after a fresh DB):
+
+```bash
+python scripts/init_db.py
 ```
 
 1. Run API server:

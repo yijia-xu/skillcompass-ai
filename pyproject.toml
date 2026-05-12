@@ -16,7 +16,7 @@ dependencies = [
   "fastapi>=0.115.0",
   "python-multipart>=0.0.9",
   "uvicorn>=0.30.6",
-  "requests>=2.32.0",
+  "azure-ai-documentintelligence>=1.0.0",
 ]
 
 [project.optional-dependencies]

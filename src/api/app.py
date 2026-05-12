@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import tempfile
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from pypdf import PdfReader
 from pydantic import BaseModel
@@ -329,8 +329,23 @@ INDEX_HTML = """<!doctype html>
       try {
         const res = await fetch("/analyze-ui", { method: "POST", body: fd });
         loaderText.textContent = "Compiling your personalized report...";
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Analysis failed");
+        const raw = await res.text();
+        let data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          const snippet = raw.replace(/\\s+/g, " ").trim().slice(0, 180);
+          throw new Error(
+            res.status + " " + (snippet || res.statusText || "Non-JSON response from server")
+          );
+        }
+        if (!res.ok) {
+          const detail = data.detail;
+          const msg = Array.isArray(detail)
+            ? detail.map((d) => d.msg || d).join("; ")
+            : (detail || data.message || raw.slice(0, 300) || "Analysis failed");
+          throw new Error(msg);
+        }
         report.textContent = data.markdown_report;
         statusEl.textContent = "Done.";
       } catch (err) {
@@ -374,7 +389,10 @@ def analyze_ui(target_role: str = Form(...), resume_file: UploadFile = File(...)
     content = resume_file.file.read()
     text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(content)).pages).strip()
     if not text:
-        raise ValueError("Uploaded PDF has no extractable text.")
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded PDF has no extractable text (try a text-based PDF, not a scan).",
+        )
     suffix = Path(resume_file.filename or "resume.pdf").suffix or ".pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(content)
@@ -382,7 +400,15 @@ def analyze_ui(target_role: str = Form(...), resume_file: UploadFile = File(...)
     try:
         from src.services.analyze import run_analysis
 
-        result = run_analysis(target_role=target_role, resume_text=text, resume_file_path=tmp_path)
+        try:
+            result = run_analysis(target_role=target_role, resume_text=text, resume_file_path=tmp_path)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=str(exc) or "Analysis failed",
+            ) from exc
         return AnalyzeResponse(result=result.model_dump(), markdown_report=result_to_markdown(result))
     finally:
         try:
