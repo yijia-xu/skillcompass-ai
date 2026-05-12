@@ -12,7 +12,7 @@ def result_to_markdown(result: GraphState) -> str:
     top_three_text = ", ".join(g.skill for g in top_three) if top_three else "N/A"
     priority_map = {gap.skill: f"P{idx}" for idx, gap in enumerate(top_three, start=1)}
 
-    lines = [f"# GapSolver AI Report ({result.target_role})", ""]
+    lines = [f"# SkillCompass AI Report ({result.target_role})", ""]
     lines.append("## 1) Executive Summary")
     lines.append(f"- Target role: `{result.target_role}`")
     lines.append(f"- Analyzed matched postings: `{len(result.matched_postings)}`")

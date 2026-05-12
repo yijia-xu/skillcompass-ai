@@ -61,6 +61,8 @@ source .venv/bin/activate
 pip install -e .
 ```
 
+Use the same interpreter for `uvicorn` (Document Intelligence needs `azure-ai-documentintelligence` from this install). If you see `No module named 'azure'`, you are not using the venv or need `pip install -e .` again.
+
 1. Configure environment:
 
 ```bash

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from src.services.formatters import result_to_markdown
 
-app = FastAPI(title="GapSolver AI API", version="0.1.0")
+app = FastAPI(title="SkillCompass AI API", version="0.1.0")
 
 INDEX_HTML = """<!doctype html>
 <html lang="en">
@@ -200,17 +200,75 @@ INDEX_HTML = """<!doctype html>
     }
     button:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(45,206,143,.33); filter: saturate(1.06); }
     button:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; transform: none; }
-    .result pre {
-      white-space: pre-wrap;
-      margin: 0;
+    .report-shell {
       background: #0f1721;
       border: 1px solid #213647;
       border-radius: 14px;
-      padding: 16px;
-      color: #d4dfec;
-      line-height: 1.5;
+      padding: 20px 22px;
       min-height: 140px;
+      color: #d4dfec;
+      line-height: 1.55;
+      font-size: 15px;
     }
+    .md-report { max-width: 100%; overflow-x: auto; }
+    .md-report h1 { font-size: 1.45rem; margin: 0 0 0.75rem; color: var(--text); font-weight: 700; letter-spacing: -0.02em; }
+    .md-report h2 { font-size: 1.2rem; margin: 1.35rem 0 0.6rem; color: #c8e6d8; font-weight: 650; border-bottom: 1px solid #213647; padding-bottom: 0.35rem; }
+    .md-report h3 { font-size: 1.05rem; margin: 1rem 0 0.45rem; color: var(--accent-2); font-weight: 600; }
+    .md-report p { margin: 0.5rem 0; color: #c9d7e6; }
+    .md-report ul, .md-report ol { margin: 0.45rem 0 0.65rem 1.25rem; padding: 0; color: #c9d7e6; }
+    .md-report li { margin: 0.25rem 0; }
+    .md-report a { color: var(--accent-2); text-decoration: underline; text-underline-offset: 3px; }
+    .md-report a:hover { color: #7ae9c8; }
+    .md-report code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.88em;
+      background: rgba(45, 206, 143, 0.12);
+      border: 1px solid rgba(45, 206, 143, 0.2);
+      padding: 0.12em 0.4em;
+      border-radius: 6px;
+      color: #b8f0d8;
+    }
+    .md-report pre {
+      margin: 0.65rem 0;
+      padding: 14px 16px;
+      background: #0a1018;
+      border: 1px solid #1e3344;
+      border-radius: 10px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .md-report pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #d0dde9;
+      font-size: 0.86rem;
+    }
+    .md-report table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.75rem 0;
+      font-size: 0.92rem;
+    }
+    .md-report th, .md-report td {
+      border: 1px solid #2a4054;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .md-report th { background: rgba(45, 206, 143, 0.1); color: #dff5ea; }
+    .md-report tr:nth-child(even) td { background: rgba(15, 23, 33, 0.55); }
+    .md-report blockquote {
+      margin: 0.6rem 0;
+      padding: 0.35rem 0 0.35rem 1rem;
+      border-left: 3px solid var(--accent);
+      color: #9fb5c8;
+      background: rgba(45, 206, 143, 0.06);
+      border-radius: 0 8px 8px 0;
+    }
+    .md-report hr { border: none; border-top: 1px solid #213647; margin: 1.25rem 0; }
+    .md-report .md-placeholder, .md-report .md-error { color: var(--muted); margin: 0; }
+    .md-report .md-error { color: #f0a8a8; }
     .status { color: var(--muted); font-size: 14px; min-height: 22px; margin-top: 8px; }
     .loader {
       display: none;
@@ -299,9 +357,13 @@ INDEX_HTML = """<!doctype html>
       </div>
     </form>
     <div class="result panel">
-      <pre id="report">Run analysis to see report...</pre>
+      <div class="report-shell">
+        <div id="report" class="md-report"><p class="md-placeholder">Run analysis to see report…</p></div>
+      </div>
     </div>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <script>
     const form = document.getElementById("analyze-form");
     const report = document.getElementById("report");
@@ -325,7 +387,7 @@ INDEX_HTML = """<!doctype html>
       statusEl.textContent = "Analyzing...";
       loader.classList.add("active");
       loaderText.textContent = "Scanning resume and market data...";
-      report.textContent = "";
+      report.innerHTML = "";
       try {
         const res = await fetch("/analyze-ui", { method: "POST", body: fd });
         loaderText.textContent = "Compiling your personalized report...";
@@ -346,10 +408,19 @@ INDEX_HTML = """<!doctype html>
             : (detail || data.message || raw.slice(0, 300) || "Analysis failed");
           throw new Error(msg);
         }
-        report.textContent = data.markdown_report;
+        const md = data.markdown_report || "";
+        const rawHtml = typeof marked !== "undefined" && marked.parse
+          ? marked.parse(md, { breaks: true, gfm: true })
+          : "<pre>" + md.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</pre>";
+        report.innerHTML =
+          typeof DOMPurify !== "undefined" ? DOMPurify.sanitize(rawHtml) : rawHtml;
         statusEl.textContent = "Done.";
       } catch (err) {
-        report.textContent = "Analyze failed: " + err.message;
+        report.innerHTML = "";
+        const p = document.createElement("p");
+        p.className = "md-error";
+        p.textContent = "Analyze failed: " + err.message;
+        report.appendChild(p);
         statusEl.textContent = "Failed.";
       } finally {
         submitBtn.disabled = false;
@@ -386,44 +457,64 @@ def index() -> str:
 
 @app.post("/analyze-ui")
 def analyze_ui(target_role: str = Form(...), resume_file: UploadFile = File(...)) -> AnalyzeResponse:
-    content = resume_file.file.read()
-    text = "\n".join((page.extract_text() or "") for page in PdfReader(BytesIO(content)).pages).strip()
-    if not text:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded PDF has no extractable text (try a text-based PDF, not a scan).",
-        )
-    suffix = Path(resume_file.filename or "resume.pdf").suffix or ".pdf"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
+    tmp_path: str | None = None
     try:
+        content = resume_file.file.read()
+        try:
+            reader = PdfReader(BytesIO(content))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages).strip()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Could not read PDF: {exc}",
+            ) from exc
+        if not text:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded PDF has no extractable text (try a text-based PDF, not a scan).",
+            )
+        suffix = Path(resume_file.filename or "resume.pdf").suffix or ".pdf"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
         from src.services.analyze import run_analysis
 
         try:
             result = run_analysis(target_role=target_role, resume_text=text, resume_file_path=tmp_path)
+            markdown_report = result_to_markdown(result)
+            return AnalyzeResponse(result=result.model_dump(), markdown_report=markdown_report)
         except HTTPException:
             raise
         except Exception as exc:
             raise HTTPException(
                 status_code=500,
-                detail=str(exc) or "Analysis failed",
+                detail=str(exc) or type(exc).__name__,
             ) from exc
-        return AnalyzeResponse(result=result.model_dump(), markdown_report=result_to_markdown(result))
     finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
     from src.services.analyze import run_analysis
 
-    result = run_analysis(
-        target_role=payload.target_role,
-        resume_text=payload.resume_text,
-        resume_file_path=payload.resume_file_path,
-    )
-    return AnalyzeResponse(result=result.model_dump(), markdown_report=result_to_markdown(result))
+    try:
+        result = run_analysis(
+            target_role=payload.target_role,
+            resume_text=payload.resume_text,
+            resume_file_path=payload.resume_file_path,
+        )
+        markdown_report = result_to_markdown(result)
+        return AnalyzeResponse(result=result.model_dump(), markdown_report=markdown_report)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc) or type(exc).__name__,
+        ) from exc
