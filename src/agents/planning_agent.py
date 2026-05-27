@@ -105,16 +105,19 @@ def planning_agent(state: GraphState) -> GraphState:
         model=settings.azure_openai_chat_deployment,
         temperature=0.2,
     )
+    weekly_hours = getattr(state, "weekly_hours", 8)
     prompt = (
         "You are a career learning planner. Produce a 3-phase learning plan as strict JSON list with keys: "
         "phase, objective, tasks, deliverable. Phases must be Foundation, Core, Project. "
-        "Use gaps, target role, and learning resources as input. "
+        "Use gaps, target role, available weekly hours, and learning resources as input. "
+        "Calibrate workload so tasks fit within the weekly time budget (do not over-plan). "
         "Tasks must include concrete resource links in markdown format. "
         f"strict_resources={settings.strict_resources}. "
         "If strict_resources is true, every task must contain at least one URL or markdown link."
     )
     payload = {
         "target_role": state.target_role,
+        "weekly_hours": weekly_hours,
         "top_skill_gaps": [g.model_dump() for g in state.top_skill_gaps],
         "resource_map": resource_map,
     }

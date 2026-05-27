@@ -29,6 +29,14 @@ def result_to_markdown(result: GraphState) -> str:
         )
     lines.append("")
 
+    if not result.learning_plan:
+        lines.append("## 3) Learning Plan by Phase")
+        lines.append(
+            "- Roadmap not generated yet. Choose weekly study hours and generate a plan to see this section."
+        )
+        lines.append("")
+        return "\n".join(lines)
+
     lines.append("## 3) Learning Plan by Phase")
     for idx, step in enumerate(result.learning_plan, start=1):
         lines.append(f"### Phase {idx}")

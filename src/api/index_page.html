@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillCompass AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #080c10;
+      --surface: #111820;
+      --surface-2: #171f2a;
+      --border: rgba(148, 163, 184, 0.12);
+      --border-strong: rgba(61, 222, 168, 0.35);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --muted-2: #64748b;
+      --accent: #3ddea8;
+      --accent-dim: rgba(61, 222, 168, 0.12);
+      --accent-glow: rgba(61, 222, 168, 0.25);
+      --danger: #f87171;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(61, 222, 168, 0.14), transparent),
+        var(--bg);
+      line-height: 1.5;
+    }
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 12, 16, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #2ab88a);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .brand-name {
+      font-family: Syne, sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .brand-name span { color: var(--accent); }
+    .header-links {
+      display: flex;
+      gap: 8px;
+    }
+    .header-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .header-links a:hover {
+      color: var(--text);
+      border-color: var(--border-strong);
+      background: var(--accent-dim);
+    }
+    .layout {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .workflow-col { display: flex; flex-direction: column; gap: 16px; }
+    .hero-copy h1 {
+      font-family: Syne, sans-serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 8px;
+      line-height: 1.15;
+    }
+    .hero-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9375rem;
+    }
+    .stepper {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 4px 0;
+    }
+    .step-item {
+      display: flex;
+      gap: 14px;
+      position: relative;
+      padding-bottom: 20px;
+    }
+    .step-item:last-child { padding-bottom: 0; }
+    .step-item:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: 15px;
+      top: 32px;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+    .step-item.done:not(:last-child)::before { background: var(--accent); opacity: 0.4; }
+    .step-item.active:not(:last-child)::before {
+      background: linear-gradient(180deg, var(--accent), var(--border));
+    }
+    .step-dot {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--muted);
+      z-index: 1;
+      transition: all 0.2s ease;
+    }
+    .step-item.active .step-dot {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .step-item.done .step-dot {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #062a1f;
+    }
+    .step-body { padding-top: 4px; min-width: 0; }
+    .step-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 2px;
+    }
+    .step-desc {
+      font-size: 0.75rem;
+      color: var(--muted-2);
+      margin: 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .card.hidden { display: none; }
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+    label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.9375rem;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:focus {
+      border-color: var(--border-strong);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .file-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 120px;
+      padding: 20px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      text-align: center;
+    }
+    .file-zone:hover, .file-zone:focus-within {
+      border-color: var(--border-strong);
+      background: rgba(61, 222, 168, 0.04);
+    }
+    .file-zone-icon { font-size: 1.75rem; opacity: 0.9; }
+    .file-zone-title { font-size: 0.875rem; font-weight: 600; margin: 0; }
+    .file-zone-hint { font-size: 0.75rem; color: var(--muted-2); margin: 0; }
+    .file-name-display {
+      font-size: 0.8125rem;
+      color: var(--accent);
+      font-weight: 500;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-input-native {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .hours-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .preset-btn {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .preset-btn:hover { border-color: var(--border-strong); color: var(--text); }
+    .preset-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      border: none;
+      border-radius: var(--radius-sm);
+      font: inherit;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      padding: 14px 18px;
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+    }
+    .btn-primary {
+      background: linear-gradient(180deg, #4ae8b8 0%, var(--accent) 100%);
+      color: #052218;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px var(--accent-glow);
+    }
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--accent-dim);
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .status-line {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      min-height: 1.25rem;
+      margin-top: 10px;
+    }
+    .status-line.error { color: var(--danger); }
+    .status-line.success { color: var(--accent); }
+    .loader {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+    .loader.active { display: flex; }
+    .loader-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .report-col { min-width: 0; }
+    .report-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+    }
+    .report-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .report-header h2 {
+      margin: 0;
+      font-size: 0.9375rem;
+      font-weight: 700;
+    }
+    .report-badge {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .report-body {
+      flex: 1;
+      padding: 22px 24px;
+      overflow-x: auto;
+    }
+    .md-report { font-size: 0.9375rem; line-height: 1.6; color: #cbd5e1; }
+    .md-report h1 {
+      font-family: Syne, sans-serif;
+      font-size: 1.35rem;
+      margin: 0 0 1rem;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .md-report h2 {
+      font-size: 1.05rem;
+      margin: 1.5rem 0 0.65rem;
+      color: #e2e8f0;
+      font-weight: 700;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .md-report h3 { font-size: 0.95rem; margin: 1rem 0 0.4rem; color: var(--accent); font-weight: 600; }
+    .md-report p { margin: 0.5rem 0; }
+    .md-report ul, .md-report ol { margin: 0.5rem 0 0.75rem 1.2rem; padding: 0; }
+    .md-report li { margin: 0.2rem 0; }
+    .md-report a { color: var(--accent); text-underline-offset: 3px; }
+    .md-report code {
+      font-family: ui-monospace, monospace;
+      font-size: 0.85em;
+      background: var(--accent-dim);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      color: #a7f3d0;
+    }
+    .md-report pre {
+      background: #0a0e14;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+    .md-report pre code { background: none; padding: 0; }
+    .md-report table { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin: 0.75rem 0; }
+    .md-report th, .md-report td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .md-report th { background: var(--accent-dim); color: #d1fae5; }
+    .md-report tr:nth-child(even) td { background: rgba(0, 0, 0, 0.2); }
+    .md-report blockquote {
+      margin: 0.75rem 0;
+      padding-left: 1rem;
+      border-left: 3px solid var(--accent);
+      color: var(--muted);
+    }
+    .md-placeholder { color: var(--muted-2); font-size: 0.9375rem; margin: 0; }
+    .md-error { color: var(--danger); margin: 0; }
+    .empty-illustration {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted-2);
+    }
+    .empty-illustration p { margin: 8px 0 0; font-size: 0.875rem; max-width: 280px; margin-left: auto; margin-right: auto; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/">
+      <div class="brand-mark" aria-hidden="true">◎</div>
+      <div class="brand-name">Skill<span>Compass</span></div>
+    </a>
+    <nav class="header-links">
+      <a href="https://github.com/yijia-xu/skillcompass-ai" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="/docs" target="_blank" rel="noreferrer">API</a>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <div class="workflow-col">
+      <div class="hero-copy">
+        <h1>Close your skill gaps with market-backed roadmaps</h1>
+        <p>Upload a resume, analyze demand from live postings, then build a plan that fits your schedule.</p>
+      </div>
+
+      <div class="stepper" aria-label="Progress">
+        <div class="step-item active" id="step-indicator-1">
+          <div class="step-dot">1</div>
+          <div class="step-body">
+            <p class="step-title">Gap analysis</p>
+            <p class="step-desc">Resume vs. market skills</p>
+          </div>
+        </div>
+        <div class="step-item" id="step-indicator-2">
+          <div class="step-dot">2</div>
+          <div class="step-body">
+            <p class="step-title">Study budget</p>
+            <p class="step-desc">Hours per week</p>
+          </div>
+        </div>
+        <div class="step-item" id="step-indicator-3">
+          <div class="step-dot">3</div>
+          <div class="step-body">
+            <p class="step-title">Learning roadmap</p>
+            <p class="step-desc">Phased plan + resources</p>
+          </div>
+        </div>
+      </div>
+
+      <form id="analyze-form" class="card">
+        <div class="field">
+          <label for="target_role">Target role</label>
+          <input id="target_role" name="target_role" type="text" value="data engineer" placeholder="e.g. data engineer, ML engineer" />
+        </div>
+        <div class="field">
+          <label for="resume_file">Resume (PDF)</label>
+          <label class="file-zone" for="resume_file" id="file-zone">
+            <span class="file-zone-icon" aria-hidden="true">📄</span>
+            <p class="file-zone-title">Drop PDF or click to browse</p>
+            <p class="file-zone-hint">Text-based PDFs work best</p>
+            <span class="file-name-display" id="file-name">No file selected</span>
+          </label>
+          <input class="file-input-native" id="resume_file" name="resume_file" type="file" accept=".pdf" required />
+        </div>
+        <button class="btn btn-primary" id="submit-btn" type="submit">Analyze skill gaps</button>
+        <div class="status-line" id="status"></div>
+        <div class="loader" id="loader">
+          <span class="loader-spinner" aria-hidden="true"></span>
+          <span id="loader-text">Processing…</span>
+        </div>
+      </form>
+
+      <div class="card hidden" id="weekly-hours-panel">
+        <div class="field">
+          <label for="weekly_hours">Weekly study time</label>
+          <div class="hours-presets" role="group" aria-label="Quick presets">
+            <button type="button" class="preset-btn" data-hours="5">5h</button>
+            <button type="button" class="preset-btn selected" data-hours="8">8h</button>
+            <button type="button" class="preset-btn" data-hours="10">10h</button>
+            <button type="button" class="preset-btn" data-hours="15">15h</button>
+            <button type="button" class="preset-btn" data-hours="20">20h</button>
+          </div>
+          <input id="weekly_hours" type="number" min="1" max="60" step="1" value="8" />
+        </div>
+      </div>
+
+      <div class="card hidden" id="roadmap-panel">
+        <button class="btn btn-secondary" id="roadmap-btn" type="button">Generate learning roadmap</button>
+        <div class="status-line" id="roadmap-status"></div>
+      </div>
+    </div>
+
+    <section class="report-col">
+      <div class="report-card">
+        <div class="report-header">
+          <h2>Your report</h2>
+          <span class="report-badge" id="report-badge">Waiting</span>
+        </div>
+        <div class="report-body">
+          <div id="report" class="md-report">
+            <div class="empty-illustration">
+              <span style="font-size:2.5rem;opacity:0.5" aria-hidden="true">◇</span>
+              <p>Run gap analysis to see your skill matrix and personalized roadmap here.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script>
+    const form = document.getElementById("analyze-form");
+    const report = document.getElementById("report");
+    const reportBadge = document.getElementById("report-badge");
+    const statusEl = document.getElementById("status");
+    const submitBtn = document.getElementById("submit-btn");
+    const weeklyHoursPanel = document.getElementById("weekly-hours-panel");
+    const roadmapPanel = document.getElementById("roadmap-panel");
+    const roadmapBtn = document.getElementById("roadmap-btn");
+    const roadmapStatus = document.getElementById("roadmap-status");
+    const fileNameEl = document.getElementById("file-name");
+    const resumeFileInput = document.getElementById("resume_file");
+    const weeklyHoursInput = document.getElementById("weekly_hours");
+    const loader = document.getElementById("loader");
+    const loaderText = document.getElementById("loader-text");
+    const defaultBtnLabel = submitBtn.textContent;
+    const stepEls = [1, 2, 3].map((n) => document.getElementById("step-indicator-" + n));
+    let analysisId = null;
+
+    function setSteps(active) {
+      stepEls.forEach((el, i) => {
+        const n = i + 1;
+        el.classList.remove("active", "done");
+        if (n < active) el.classList.add("done");
+        else if (n === active) el.classList.add("active");
+      });
+    }
+
+    function renderMarkdown(md) {
+      const rawHtml =
+        typeof marked !== "undefined" && marked.parse
+          ? marked.parse(md, { breaks: true, gfm: true })
+          : "<pre>" + md.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</pre>";
+      return typeof DOMPurify !== "undefined" ? DOMPurify.sanitize(rawHtml) : rawHtml;
+    }
+
+    function parseApiError(data, raw, fallback) {
+      const detail = data.detail;
+      return Array.isArray(detail)
+        ? detail.map((d) => d.msg || d).join("; ")
+        : detail || data.message || raw.slice(0, 300) || fallback;
+    }
+
+    resumeFileInput.addEventListener("change", () => {
+      const file = resumeFileInput.files && resumeFileInput.files[0];
+      fileNameEl.textContent = file ? file.name : "No file selected";
+    });
+
+    document.querySelectorAll(".preset-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".preset-btn").forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        weeklyHoursInput.value = btn.dataset.hours;
+      });
+    });
+    weeklyHoursInput.addEventListener("input", () => {
+      document.querySelectorAll(".preset-btn").forEach((b) => {
+        b.classList.toggle("selected", b.dataset.hours === weeklyHoursInput.value);
+      });
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!resumeFileInput.files.length) return;
+      const fd = new FormData(form);
+      analysisId = null;
+      roadmapStatus.textContent = "";
+      roadmapStatus.className = "status-line";
+      roadmapPanel.classList.add("hidden");
+      weeklyHoursPanel.classList.add("hidden");
+      setSteps(1);
+      reportBadge.textContent = "Analyzing";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Analyzing…";
+      statusEl.textContent = "Scanning resume and market data…";
+      statusEl.className = "status-line";
+      loader.classList.add("active");
+      loaderText.textContent = "This may take a minute…";
+      report.innerHTML = "";
+      try {
+        const res = await fetch("/analyze-ui", { method: "POST", body: fd });
+        loaderText.textContent = "Building report…";
+        const raw = await res.text();
+        let data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          throw new Error(res.status + " " + (raw.replace(/\s+/g, " ").trim().slice(0, 180) || res.statusText));
+        }
+        if (!res.ok) throw new Error(parseApiError(data, raw, "Analysis failed"));
+        analysisId = data.analysis_id || null;
+        report.innerHTML = renderMarkdown(data.markdown_report || "");
+        statusEl.textContent = "Gap analysis complete.";
+        statusEl.className = "status-line success";
+        reportBadge.textContent = "Gaps ready";
+        if (analysisId) {
+          setSteps(2);
+          weeklyHoursPanel.classList.remove("hidden");
+          roadmapPanel.classList.remove("hidden");
+          roadmapStatus.textContent = "Set your weekly hours, then generate the roadmap.";
+          document.querySelector(".report-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      } catch (err) {
+        report.innerHTML = '<p class="md-error">' + err.message + "</p>";
+        statusEl.textContent = "Analysis failed.";
+        statusEl.className = "status-line error";
+        reportBadge.textContent = "Error";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = defaultBtnLabel;
+        loader.classList.remove("active");
+      }
+    });
+
+    roadmapBtn.addEventListener("click", async () => {
+      if (!analysisId) return;
+      setSteps(3);
+      const fd = new FormData();
+      fd.append("analysis_id", analysisId);
+      fd.append("weekly_hours", weeklyHoursInput.value);
+      roadmapBtn.disabled = true;
+      roadmapStatus.textContent = "Generating roadmap…";
+      roadmapStatus.className = "status-line";
+      reportBadge.textContent = "Planning";
+      try {
+        const res = await fetch("/plan-ui", { method: "POST", body: fd });
+        const raw = await res.text();
+        let data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          throw new Error(res.status + " " + (raw.replace(/\s+/g, " ").trim().slice(0, 180) || res.statusText));
+        }
+        if (!res.ok) throw new Error(parseApiError(data, raw, "Roadmap generation failed"));
+        report.innerHTML = renderMarkdown(data.markdown_report || "");
+        roadmapStatus.textContent = "Roadmap ready.";
+        roadmapStatus.className = "status-line success";
+        reportBadge.textContent = "Complete";
+        stepEls.forEach((el) => el.classList.add("done"));
+        stepEls[2].classList.add("active");
+      } catch (err) {
+        roadmapStatus.textContent = err.message;
+        roadmapStatus.className = "status-line error";
+        reportBadge.textContent = "Error";
+      } finally {
+        roadmapBtn.disabled = false;
+      }
+    });
+
+    setSteps(1);
+  </script>
+</body>
+</html>

@@ -45,6 +45,7 @@ class GraphState(BaseModel):
     target_role: str
     resume_text: str
     resume_file_path: str = ""
+    weekly_hours: int = 8
     agent_trace: list[str] = Field(default_factory=list)
     parsed_resume_skills: list[str] = Field(default_factory=list)
     query_embedding: list[float] = Field(default_factory=list)
@@ -66,4 +67,13 @@ class GraphState(BaseModel):
     def validate_resume_text(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("resume_text cannot be empty")
+        return value
+
+    @field_validator("weekly_hours")
+    @classmethod
+    def validate_weekly_hours(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("weekly_hours must be >= 1")
+        if value > 60:
+            raise ValueError("weekly_hours must be <= 60")
         return value
