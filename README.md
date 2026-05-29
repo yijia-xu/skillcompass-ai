@@ -118,12 +118,6 @@ vercel --prod
 
 Set the same environment variables from `.env` in Vercel Project Settings.
 
-![1778109592777](images/README/1778109592777.png)
 
-![1779247333406](images/README/1779247333406.png)
-
-![1779247352686](images/README/1779247352686.png)
-
-![1779247363269](images/README/1779247363269.png)
 
 - Will work on improving the tech keywords extraction & Learning resources/roadmaps RAG
